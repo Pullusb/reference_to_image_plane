@@ -3,11 +3,10 @@
 Convert a drag'n'dropped image reference to a texture plane.
 As if it was imported with `import image as plane`
 
-**[Download latest](https://github.com/Pullusb/REPO_NAME/archive/master.zip)**
+**[Download latest](https://github.com/Pullusb/ref_to_image_plane/archive/refs/heads/main.zip)**
 
-<!-- ### [Demo Youtube]() -->
 
-> Credits: Some function used where taken from Import image as plane addon
+> Credits: Some function used where taken from Import image as plane addon  
 > authors: Florian Meyer (tstscr), mont29, matali, Ted Schundler (SpkyElctrc)
 
 ---  
@@ -15,16 +14,19 @@ As if it was imported with `import image as plane`
 ## Description
 
 
-Shader can be chosen between "Emit", "Principled", "Shadeless"
+Select some references Empty objects, then call `Convert References To Image Planes` via search
 
-You can also choose to delete source references
-Transformation will be kepts
+Options:
+Shader can be chosen in `Emit`, `Principled` and `Shadeless`.  
 
-Select some references
+Name of created texture plane can be built after image filename or from object name (suffixed `_texplane` in this case)
+
+Also possible to delete Empty references after conversion (True by defaut)
+
+
+Initial Empty image Transformation should be kepts in generated mesh.
+
 
 ### Where ?
 
-
-
-Search menu (`F3`) > type "Convert References To Image Planes" > Enter will pop the menu
-
+Search menu (`F3`) > type "Convert References To Image Planes" > Use pop-up the menu
