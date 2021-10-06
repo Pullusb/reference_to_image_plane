@@ -20,12 +20,12 @@ class RTP_OT_convert_to_mesh(Operator):
     
     NAME_RULE = (
         ('OBJECT',"Source Object","Name after object source with a suffix"),
-        ('IMAGE', "Image", "name from laoded image"),
+        ('IMAGE', "Source Image", "name from laoded image"),
     )
     
     name_from: bpy.props.EnumProperty(name="Name After", items=NAME_RULE, default='IMAGE', description="Name to give new object")
     
-    del_ref: bpy.props.BoolProperty(name="Delete Reference Object", default=True, description="Delete empty image object refernece once texture plane is created")
+    del_ref: bpy.props.BoolProperty(name="Delete Reference Object", default=True, description="Delete empty image object reference once texture plane is created")
 
 
 
