@@ -6,6 +6,11 @@ add menu entry to object (with poll ?) for empty object selection
 add panel in bg image reference for conversion
  -->
 
+0.3.1
+
+- fix: Convert active even if not selected (since convert menu entry appear)
+
+
 0.3.0
 
 - feat: add plane generation from camera background image (driver method taken from [LFS camera_plane](https://gitlab.com/lfs.coop/blender/camera-plane/-/blob/master/camera_plane.py))

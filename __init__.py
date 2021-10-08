@@ -2,7 +2,7 @@ bl_info = {
     "name": "Ref to image plane",
     "description": "convert a reference image or backgrond image to image plane (textured quad mesh)",
     "author": "Samuel Bernou",
-    "version": (0, 2, 0),
+    "version": (0, 3, 1),
     "blender": (2, 93, 0),
     "location": "Object Menu > Convert & Cam Data Properties > Background Images",
     "warning": "",

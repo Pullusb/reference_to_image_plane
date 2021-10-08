@@ -43,9 +43,12 @@ class RTP_OT_convert_to_mesh(Operator):
         return context.window_manager.invoke_props_dialog(self) # , width=450
 
     def execute(self, context):
-
+        pool = [o for o in context.selected_objects]
+        if context.object and context.object not in pool:
+            pool.append(context.object)
         converted = 0
-        for o in context.selected_objects:
+
+        for o in pool:
             if not self._is_ref(o):
                 continue
             fn.convert_empty_image_to_mesh(context, o, name_from=self.name_from, delete_ref=self.del_ref, shader=self.shader)
