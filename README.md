@@ -12,7 +12,7 @@ Use on drag'n'dropped image, empty object or camera background images
 >Some function used where taken from built-in addon [Import image as plane](https://github.com/sobotka/blender-addons/blob/master/io_import_images_as_planes.py)  
 > authors: Florian Meyer (tstscr), mont29, matali, Ted Schundler (SpkyElctrc)
 
-> `create_plane_driver` function is taken from  addon [Camera plane](https://gitlab.com/lfs.coop/blender/camera-plane)  
+> `create_plane_driver` function is taken from addon [Camera plane](https://gitlab.com/lfs.coop/blender/camera-plane)  
 > author: _Les Fées Spéciales (LFS)_
 ---  
 
@@ -56,4 +56,3 @@ or search (`F3`) > "Convert References To Image Planes" > Use pop-up the menu
 To generate planes from visible background images:  
 `Camera data properties > Background images > Image plane from visible refs`
 or search (`F3`) > "Camera Bg Images To Image Planes" > Use pop-up the menu
-
