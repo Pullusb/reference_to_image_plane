@@ -5,7 +5,7 @@ As if it was imported with `import image as plane`
 
 Use on drag'n'dropped image, empty object or camera background images
 
-**[Download latest](https://github.com/Pullusb/ref_to_image_plane/archive/refs/heads/main.zip)**
+**[Download latest](https://github.com/Pullusb/reference_to_image_plane/archive/refs/heads/main.zip)**
 
 
 ### Extra Credits  
