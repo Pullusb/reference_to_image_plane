@@ -6,6 +6,18 @@ add menu entry to object (with poll ?) for empty object selection
 add panel in bg image reference for conversion
  -->
 
+
+0.4.0
+
+- feat: choose destination collection in pop-up (default can be changed in 
+- feat: addon preferences for settings:
+  - default plane shader
+  - default driver creation 
+  - default dest collection name
+- feat: added shortcut button in pop-up to open addon prefs
+- changes: default shader is now Shadeless instead ot emit
+- changes: create driver is toggles on by default
+
 0.3.2
 
 - fix: updated repo name and doc/tracker links

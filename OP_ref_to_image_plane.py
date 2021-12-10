@@ -27,8 +27,6 @@ class RTP_OT_convert_to_mesh(Operator):
     
     del_ref: bpy.props.BoolProperty(name="Delete Reference Object", default=True, description="Delete empty image object reference once texture plane is created")
 
-
-
     @classmethod
     def poll(cls, context):
         return True
@@ -40,7 +38,22 @@ class RTP_OT_convert_to_mesh(Operator):
         return o and o.type == 'EMPTY' and o.empty_display_type == 'IMAGE' and o.data
 
     def invoke(self, context, event):
+        self.shader = fn.get_prefs().shader
+        self.use_driver = fn.get_prefs().use_driver
         return context.window_manager.invoke_props_dialog(self) # , width=450
+
+    ## optional draw (just to add open addon pref button)
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column(align=False)
+        col.prop(self, 'shader')
+        col.prop(self, 'name_from')
+        col.prop(self, 'del_ref')
+
+        row = col.row(align=True)
+        row.label(text='') # 'Change Default Settings:'
+        row.operator("rtp.open_addon_prefs", text="", icon='PREFERENCES')
 
     def execute(self, context):
         pool = [o for o in context.selected_objects]
@@ -51,7 +64,13 @@ class RTP_OT_convert_to_mesh(Operator):
         for o in pool:
             if not self._is_ref(o):
                 continue
-            fn.convert_empty_image_to_mesh(context, o, name_from=self.name_from, delete_ref=self.del_ref, shader=self.shader)
+            fn.convert_empty_image_to_mesh(
+                context, 
+                o, 
+                name_from=self.name_from, 
+                delete_ref=self.del_ref, 
+                shader=self.shader,)
+            
             converted += 1
 
         if not converted:

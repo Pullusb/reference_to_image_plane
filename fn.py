@@ -14,6 +14,12 @@ ImageSpec = namedtuple(
     'ImageSpec',
     ['image', 'size', 'frame_start', 'frame_offset', 'frame_duration'])
 
+def get_prefs():
+    '''
+    function to read current addon preferences properties
+    access with : get_prefs().super_special_option
+    '''
+    return bpy.context.preferences.addons[__package__].preferences
 
 def clean_node_tree(node_tree):
     """Clear all nodes in a shader node tree except the output.
@@ -474,7 +480,7 @@ def create_plane_driver(cam, plane, distance=None):
         plane["camera_plane_distance"] = distance
     
 
-def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_driver=False, post_state='HIDE'):
+def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_driver=False, post_state='HIDE', col_name='Background'):
     cam = context.object
     if not cam or cam.type != 'CAMERA':
         # fallback to scene active camera if no cam selected
@@ -527,7 +533,10 @@ def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_dr
 
 
         # context.scene.collection.objects.link(plane) # scene collection
-        set_collection(plane, "Background")
+        if not col_name:
+            context.scene.collection.objects.link(plane)
+        else:
+            set_collection(plane, col_name)
 
         # create ctrl driver
         if use_driver:
