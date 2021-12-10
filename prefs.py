@@ -1,4 +1,5 @@
 import bpy
+from . import fn
 
 class RTP_addon_prefs(bpy.types.AddonPreferences):
     bl_idname = __package__ # or  __name__.split('.')[0] # or with: os.path.splitext(__name__)[0]
@@ -32,10 +33,12 @@ class RTP_addon_prefs(bpy.types.AddonPreferences):
         ## Cam BG imgs dedicated settings
         box = col.box()
         box.label(text='Camera background images to plane prefs:')
-        split = box.split(factor=0.6)
-        split.label(text='Destination Collection (empty field = Scene Collection)')
-        split.prop(self, "collection", text='')
         box.prop(self, "use_driver", text='Toggle Driver Creation On')
+        
+        bcol = box.column() 
+        bcol.prop(self, "collection", text='Destination Collection')
+        bcol.label(text='(Empty field = Scene Collection)')
+        bcol.label(text='Destination can be overwritten with env variable: "REF_TO_PLANE_COLLECTION"') #, icon='INFO')
 
 
 def open_addon_prefs():
@@ -61,10 +64,19 @@ class RTP_OT_open_addon_prefs(bpy.types.Operator):
         open_addon_prefs()
         return {'FINISHED'}
 
+### --- ENV_PROP ---
+
+def set_env_properties():
+    import os
+    prefs = fn.get_prefs()
+    collec = os.getenv('REF_TO_PLANE_COLLECTION')
+    prefs.collection = collec if collec else prefs.collection
+
 
 def register():
     bpy.utils.register_class(RTP_OT_open_addon_prefs)
     bpy.utils.register_class(RTP_addon_prefs)
+    set_env_properties()
 
 def unregister():
     bpy.utils.unregister_class(RTP_addon_prefs)

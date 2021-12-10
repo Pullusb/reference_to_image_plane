@@ -1,15 +1,12 @@
 # Changelog
 
-<!-- 
-TODO:
-add menu entry to object (with poll ?) for empty object selection
-add panel in bg image reference for conversion
- -->
+0.4.1
 
+- feat: Add 'REF_TO_PLANE_COLLECTION' env variable to set destination collection for custom projects
 
 0.4.0
 
-- feat: choose destination collection in pop-up (default can be changed in 
+- feat: choose destination collection in pop-up
 - feat: addon preferences for settings:
   - default plane shader
   - default driver creation 
