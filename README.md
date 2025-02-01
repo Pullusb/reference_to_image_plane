@@ -5,9 +5,15 @@ As if it was imported with `import image as plane`
 
 Use on drag'n'dropped image, empty object or camera background images
 
+Note 👉 Since Blender 4.2, the main feature *"convert empty image to mesh plane"* has been [ported in Blender and improved by Nika Kutsniashvili](https://projects.blender.org/blender/blender/pulls/122546).
+
+You still need this standalone version if you want to create image plane from a camera background image (button accessible from camera background image in properties).
+
+
 **[Download latest](https://github.com/Pullusb/reference_to_image_plane/archive/refs/heads/main.zip)**
 
 **[Demo on Youtube](https://youtu.be/tceQ7MuEHAw)**
+
 
 ### Extra Credits  
 
