@@ -24,14 +24,21 @@ def get_prefs():
 def clean_node_tree(node_tree):
     """Clear all nodes in a shader node tree except the output.
 
-    Returns the output node
+    Returns the output node (created if missing)
     """
     nodes = node_tree.nodes
     for node in list(nodes):  # copy to avoid altering the loop's data source
         if not node.type == 'OUTPUT_MATERIAL':
             nodes.remove(node)
 
-    return node_tree.nodes[0]
+    if not nodes:
+        # Node tree can be empty (e.g. reused material without default nodes)
+        return nodes.new('ShaderNodeOutputMaterial')
+
+    # Keep a single output
+    for node in list(nodes)[1:]:
+        nodes.remove(node)
+    return nodes[0]
 
 #### /// can load from IAP
 def get_input_nodes(node, links):
@@ -82,19 +89,44 @@ def auto_align_nodes(node_tree):
 
     align(output_node)
 
+def get_socket(sockets, *names):
+    """Return first socket found by name, to handle renaming across Blender versions"""
+    for name in names:
+        socket = sockets.get(name)
+        if socket is not None:
+            return socket
+    raise KeyError(f'None of sockets {names} found')
+
+def is_valid_shadeless_group(node_tree):
+    """Check that the shadeless group has the expected output socket connected"""
+    for node in node_tree.nodes:
+        if node.type == 'GROUP_OUTPUT' and node.inputs and node.inputs[0].is_linked:
+            return True
+    return False
+
 def get_shadeless_node(dest_node_tree):
     """Return a "shadless" cycles/eevee node, creating a node group if nonexistent"""
-    try:
-        node_tree = bpy.data.node_groups['IAP_SHADELESS']
+    node_tree = bpy.data.node_groups.get('IAP_SHADELESS')
+    if node_tree and not is_valid_shadeless_group(node_tree):
+        # Broken group (e.g. left over from a failed build): rebuild it
+        node_tree.name = 'IAP_SHADELESS_invalid'
+        node_tree = None
 
-    except KeyError:
+    if node_tree is None:
         # need to build node shadeless node group
         node_tree = bpy.data.node_groups.new('IAP_SHADELESS', 'ShaderNodeTree')
+
+        # Create sockets before in/out nodes so they get them
+        if hasattr(node_tree, 'interface'):
+            # Blender 4.0+
+            node_tree.interface.new_socket('Shader', in_out='OUTPUT', socket_type='NodeSocketShader')
+            node_tree.interface.new_socket('Color', in_out='INPUT', socket_type='NodeSocketColor')
+        else:
+            node_tree.outputs.new('NodeSocketShader', 'Shader')
+            node_tree.inputs.new('NodeSocketColor', 'Color')
+
         output_node = node_tree.nodes.new('NodeGroupOutput')
         input_node = node_tree.nodes.new('NodeGroupInput')
-
-        node_tree.outputs.new('NodeSocketShader', 'Shader')
-        node_tree.inputs.new('NodeSocketColor', 'Color')
 
         # This could be faster as a transparent shader, but then no ambient occlusion
         diffuse_shader = node_tree.nodes.new('ShaderNodeBsdfDiffuse')
@@ -193,9 +225,15 @@ def create_cycles_material(context, img_spec, shader='EMISSION', overwrite_mater
         if not material:
             material = bpy.data.materials.new(name=name_compat)
 
-        material.use_nodes = True
+        if bpy.app.version < (5, 0, 0):
+            # Always True from 5.0 (use_nodes deprecated)
+            material.use_nodes = True
         # if selfuse_transparency:
-        material.blend_method = 'BLEND'
+        if hasattr(material, 'surface_render_method'):
+            # Blender 4.2+ (EEVEE Next)
+            material.surface_render_method = 'BLENDED'
+        else:
+            material.blend_method = 'BLEND'
         node_tree = material.node_tree
         out_node = clean_node_tree(node_tree)
 
@@ -210,13 +248,13 @@ def create_cycles_material(context, img_spec, shader='EMISSION', overwrite_mater
             core_shader = node_tree.nodes.new('ShaderNodeBsdfPrincipled')
             core_shader.inputs['Emission Strength'].default_value = 1.0#emit_strength
             core_shader.inputs['Base Color'].default_value = (0.0, 0.0, 0.0, 1.0)
-            core_shader.inputs['Specular'].default_value = 0.0
+            get_socket(core_shader.inputs, 'Specular IOR Level', 'Specular').default_value = 0.0
 
         # Connect color from texture
         if shader in {'PRINCIPLED', 'SHADELESS'}:
             node_tree.links.new(core_shader.inputs[0], tex_image.outputs['Color'])
         elif shader == 'EMISSION':
-            node_tree.links.new(core_shader.inputs['Emission'], tex_image.outputs['Color'])
+            node_tree.links.new(get_socket(core_shader.inputs, 'Emission Color', 'Emission'), tex_image.outputs['Color'])
 
         if use_transparency:
             if shader in {'PRINCIPLED', 'EMISSION'}:
@@ -225,7 +263,7 @@ def create_cycles_material(context, img_spec, shader='EMISSION', overwrite_mater
                 bsdf_transparent = node_tree.nodes.new('ShaderNodeBsdfTransparent')
 
                 mix_shader = node_tree.nodes.new('ShaderNodeMixShader')
-                node_tree.links.new(mix_shader.inputs['Fac'], tex_image.outputs['Alpha'])
+                node_tree.links.new(mix_shader.inputs[0], tex_image.outputs['Alpha'])
                 node_tree.links.new(mix_shader.inputs[1], bsdf_transparent.outputs['BSDF'])
                 node_tree.links.new(mix_shader.inputs[2], core_shader.outputs[0])
                 core_shader = mix_shader
