@@ -55,6 +55,20 @@ Distance to set plane from camera (plane will be parented to camera)
 
 Create Driver to keep plane in camera using two custom properties to control depth and scale
 
+#### From viewport screenshot
+
+Take a screenshot of the viewport (overlays, gizmos and UI regions are temporarily hidden).
+Stored as an image in the blend file (packed), and added as camera background image matching current view.
+
+- `Whole Viewport` (default): the whole viewport is captured, background image scale and offset are set so it matches the view around the camera frame. Disable to capture only the camera frame (in camera view, the view is then temporarily zoomed to fit the camera frame for maximum resolution, can be disabled)
+- In camera view: use the view camera
+- In free view: a new camera matching the view is created. Choose to crop the camera frame to render ratio, or to change the scene render resolution so the camera frame covers the whole view
+
+Options:  
+Background image opacity  
+`Replace Existing` (default): replace previous screenshot of the same camera (removes previous image, its camera background images and generated image planes). In free view, the `ScreenshotCam` camera is updated instead of creating a new one  
+Create an image plane from the screenshot, with same options as camera background conversion (shader, post action, distance, driver, collection)
+
 ### Where ?
 
 To generate planes from selected empty references:  
@@ -64,3 +78,7 @@ or search (`F3`) > "Convert References To Image Planes" > Use pop-up the menu
 To generate planes from visible background images:  
 `Camera data properties > Background images > Image plane from visible refs`
 or search (`F3`) > "Camera Bg Images To Image Planes" > Use pop-up the menu
+
+To create a camera background from a viewport screenshot:  
+`View 3D > View > Screenshot To Camera Background`
+or search (`F3`) > "Viewport Screenshot To Camera Background"

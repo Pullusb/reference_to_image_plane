@@ -9,6 +9,15 @@ def plane_from_cam_bg_ui(self, context):
     text='Image plane from visible refs', icon='IMAGE_PLANE')
 
 
+def screenshot_to_cam_ui(self, context):
+    """Append to 3D view View menu"""
+    layout = self.layout
+    layout.operator_context = 'INVOKE_DEFAULT'
+    layout.separator()
+    layout.operator("ref_to_image_plane.viewport_screenshot_to_cam",
+    text='Screenshot To Camera Background', icon='RESTRICT_RENDER_OFF')
+
+
 def plane_from_empty_reference_ui(self, context):
     layout = self.layout
     # Context data return image when image is loaded (else None)
@@ -25,8 +34,10 @@ def register():
     #     bpy.utils.register_class(cls)
     bpy.types.DATA_PT_camera_background_image.append(plane_from_cam_bg_ui)
     bpy.types.VIEW3D_MT_object_convert.append(plane_from_empty_reference_ui)
+    bpy.types.VIEW3D_MT_view.append(screenshot_to_cam_ui)
 
 def unregister():
+    bpy.types.VIEW3D_MT_view.remove(screenshot_to_cam_ui)
     bpy.types.DATA_PT_camera_background_image.remove(plane_from_cam_bg_ui)
     bpy.types.VIEW3D_MT_object_convert.remove(plane_from_empty_reference_ui)
     # for cls in reversed(classes):

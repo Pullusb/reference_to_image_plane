@@ -4,7 +4,7 @@ bl_info = {
     "author": "Samuel Bernou",
     "version": (0, 5, 0),
     "blender": (2, 93, 0),
-    "location": "Object Menu > Convert & Cam Data Properties > Background Images",
+    "location": "Object Menu > Convert & Cam Data Properties > Background Images & View3D > View",
     "warning": "",
     "doc_url": "https://github.com/Pullusb/reference_to_image_plane",
     "tracker_url": "https://github.com/Pullusb/reference_to_image_plane/issues/new",
@@ -14,6 +14,7 @@ from . import OP_ref_to_image_plane
 from . import ui
 from . import prefs
 from . import OP_cam_bg_img_to_plane
+from . import OP_viewport_screenshot
 
 import bpy
 
@@ -23,12 +24,14 @@ def register():
     prefs.register()
     OP_ref_to_image_plane.register()
     OP_cam_bg_img_to_plane.register()
+    OP_viewport_screenshot.register()
     ui.register()
 
 def unregister():
     if bpy.app.background:
         return
     ui.unregister()
+    OP_viewport_screenshot.unregister()
     OP_cam_bg_img_to_plane.unregister()
     OP_ref_to_image_plane.unregister()
     prefs.unregister()

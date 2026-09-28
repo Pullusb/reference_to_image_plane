@@ -1,5 +1,18 @@
 # Changelog
 
+0.5.0
+
+- feat: `View > Screenshot To Camera Background`: viewport screenshot (no overlays/UI) stored as image and added as camera background, matching the view
+  - whole viewport capture by default: background image scale and offset are set to match the view around camera frame
+  - option to capture camera frame only.
+  - camera view: use view camera
+  - free view: create a new camera matching the view (camera frame cropped to render ratio or change render resolution)
+  - option to also generate an image plane (same options as camera background conversion)
+  - `Replace Existing` option (default on): a new screenshot replaces the previous one of the same camera (image, camera background image and generated image plane), in free view the screenshot camera is updated instead of creating a new one
+- feat: image planes generated from camera background images follow the background image fit method, scale, offset, rotation and flip
+- fix: shader errors for Blender 4.0+
+- fix: camera image plane size/shift with portrait resolution, vertical sensor fit and orthographic cameras
+
 0.4.1
 
 - feat: Add 'REF_TO_PLANE_COLLECTION' env variable to set destination collection for custom projects

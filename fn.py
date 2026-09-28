@@ -1,5 +1,5 @@
 import bpy, re
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 
@@ -216,7 +216,8 @@ def create_cycles_texnode(context, node_tree, img_spec):
 
 def create_cycles_material(context, img_spec, shader='EMISSION', overwrite_material=True, use_transparency=True):
         image = img_spec.image
-        name_compat = bpy.path.display_name_from_filepath(image.filepath)
+        # Fallback on image name for images without filepath (generated/packed)
+        name_compat = bpy.path.display_name_from_filepath(image.filepath) or image.name
         material = None
         if overwrite_material:
             for mat in bpy.data.materials:
@@ -398,20 +399,110 @@ def set_collection(ob, collection, unlink=True) :
         for c in ob.users_collection :
             if c.name != collection : c.objects.unlink(ob)
 
-def setup_transform_from_dist(cam, plane, distance):
+def get_cam_fit_axis(cam, scene=None):
+    '''Return the frame axis driven by camera angle/ortho_scale and shift:
+    0 for width, 1 for height (resolves 'AUTO' sensor fit with render aspect)'''
+    fit = cam.data.sensor_fit
+    if fit == 'HORIZONTAL':
+        return 0
+    if fit == 'VERTICAL':
+        return 1
+    scene = scene or bpy.context.scene
+    render = scene.render
+    width = render.resolution_x * render.pixel_aspect_x
+    height = render.resolution_y * render.pixel_aspect_y
+    return 0 if width >= height else 1
+
+def get_bg_image_frame_rect(scene, cam, bg):
+    """Rect of a camera background image as drawn in camera view (without rotation):
+    (center_x, center_y, width, height), relative to camera frame center,
+    in frame units where camera fit axis size is 1.
+
+    Mirror of Blender overlay image_camera_background_matrix_get
+    (source/blender/draw/engines/overlay/overlay_camera.hh)
+    """
+    corners = cam.data.view_frame(scene=scene)
+    cam_width = abs(corners[0].x - corners[3].x)
+    cam_height = abs(corners[0].y - corners[1].y)
+    cam_aspect = cam_width / cam_height
+
+    img = bg.image
+    image_aspect = (img.size[0] * img.display_aspect[0]) / (img.size[1] * img.display_aspect[1])
+
+    if bg.frame_method == 'CROP':
+        if image_aspect > cam_aspect:
+            width, height = cam_height * image_aspect, cam_height
+        else:
+            width, height = cam_width, cam_width / image_aspect
+    elif bg.frame_method == 'FIT':
+        if image_aspect > cam_aspect:
+            width, height = cam_width, cam_width / image_aspect
+        else:
+            width, height = cam_height * image_aspect, cam_height
+    else: # STRETCH
+        width, height = cam_width, cam_height
+
+    width *= bg.scale
+    height *= bg.scale
+
+    offset_x, offset_y = bg.offset
+    if cam.data.type == 'ORTHO':
+        offset_x *= cam.data.ortho_scale
+        offset_y *= cam.data.ortho_scale
+    # Blender 2.80 behavior kept in overlay
+    offset_x *= min(1.0, cam_aspect)
+    offset_y /= max(1.0, cam_aspect) * (image_aspect / cam_aspect)
+
+    fit_size = cam_width if get_cam_fit_axis(cam, scene) == 0 else cam_height
+    return (offset_x / fit_size, offset_y / fit_size, width / fit_size, height / fit_size)
+
+def set_bg_image_frame_rect(scene, cam, bg, center_x, center_y, width):
+    """Set background image 'FIT' mode, scale and offset so the image is drawn
+    at given rect (inverse of get_bg_image_frame_rect, same units, no rotation)"""
+    corners = cam.data.view_frame(scene=scene)
+    cam_width = abs(corners[0].x - corners[3].x)
+    cam_height = abs(corners[0].y - corners[1].y)
+    cam_aspect = cam_width / cam_height
+    fit_size = cam_width if get_cam_fit_axis(cam, scene) == 0 else cam_height
+
+    img = bg.image
+    image_aspect = (img.size[0] * img.display_aspect[0]) / (img.size[1] * img.display_aspect[1])
+
+    bg.frame_method = 'FIT'
+    base_width = cam_width if image_aspect > cam_aspect else cam_height * image_aspect
+    bg.scale = width * fit_size / base_width
+
+    offset_x = center_x * fit_size / min(1.0, cam_aspect)
+    offset_y = center_y * fit_size * max(1.0, cam_aspect) * (image_aspect / cam_aspect)
+    if cam.data.type == 'ORTHO':
+        offset_x /= cam.data.ortho_scale
+        offset_y /= cam.data.ortho_scale
+    bg.offset = (offset_x, offset_y)
+
+def get_frame_size_factor(cam):
+    '''Frame size (along fit axis) as a factor of plane distance for perspective,
+    absolute size for orthographic'''
     from math import tan
+    if cam.data.type == 'ORTHO':
+        return cam.data.ortho_scale
+    return tan(cam.data.angle / 2) * 2
+
+def setup_transform_from_dist(cam, plane, distance):
     plane.parent = cam
-    
-    FOV = cam.data.angle
+
+    size = get_frame_size_factor(cam)
+    if cam.data.type != 'ORTHO':
+        size *= distance
+
     shift_x = cam.data.shift_x
     shift_y = cam.data.shift_y
 
-    plane.location.x = tan(FOV/2) * distance*2 * shift_x
-    plane.location.y = tan(FOV/2) * distance*2 * shift_y
+    plane.location.x = size * shift_x
+    plane.location.y = size * shift_y
     plane.location.z = -distance
     
     for axis in range(2):
-        plane.scale[axis] = tan(FOV/2) * distance*2# * scale/100.0
+        plane.scale[axis] = size # * scale/100.0
     
     # unparent from cam after ?
 
@@ -433,6 +524,22 @@ def create_plane_driver(cam, plane, distance=None):
     plane.lock_rotation = (True,)*3
     plane.lock_scale =    (True,)*3
 
+    ## Frame size variable: FOV in perspective, ortho scale in orthographic
+    is_ortho = cam.data.type == 'ORTHO'
+    frame_size = "ortho" if is_ortho else "tan(FOV/2) * distance*2"
+
+    def add_frame_size_var(driver):
+        var = driver.driver.variables.new()
+        var.type = 'SINGLE_PROP'
+        var.targets[0].id_type = "OBJECT"
+        var.targets[0].id = cam
+        if is_ortho:
+            var.name = "ortho"
+            var.targets[0].data_path = 'data.ortho_scale'
+        else:
+            var.name = "FOV"
+            var.targets[0].data_path = 'data.angle'
+
     ## LOC X AND Y (shift) ##
     for axis in range(2):
         driver = plane.driver_add('location', axis)
@@ -447,13 +554,8 @@ def create_plane_driver(cam, plane, distance=None):
         var.targets[0].id = plane
         var.targets[0].data_path = '["camera_plane_distance"]'
 
-        # Variable FOV
-        var = driver.driver.variables.new()
-        var.name = "FOV"
-        var.type = 'SINGLE_PROP'
-        var.targets[0].id_type = "OBJECT"
-        var.targets[0].id = cam
-        var.targets[0].data_path = 'data.angle'
+        # Variable FOV (or ortho scale)
+        add_frame_size_var(driver)
 
         # Variable scale
         var = driver.driver.variables.new()
@@ -463,8 +565,7 @@ def create_plane_driver(cam, plane, distance=None):
         var.targets[0].data_path = 'data.shift_' + ('x' if axis == 0 else 'y')
 
         # Expression
-        driver.driver.expression = \
-            "tan(FOV/2) * distance*2 * shift"
+        driver.driver.expression = f"{frame_size} * shift"
 
     ## DISTANCE ##
     driver = plane.driver_add('location', 2)
@@ -494,13 +595,8 @@ def create_plane_driver(cam, plane, distance=None):
         var.targets[0].id = plane
         var.targets[0].data_path = '["camera_plane_distance"]'
 
-        # Variable FOV
-        var = driver.driver.variables.new()
-        var.name = "FOV"
-        var.type = 'SINGLE_PROP'
-        var.targets[0].id_type = "OBJECT"
-        var.targets[0].id = cam
-        var.targets[0].data_path = 'data.angle'
+        # Variable FOV (or ortho scale)
+        add_frame_size_var(driver)
 
         # Variable scale
         var = driver.driver.variables.new()
@@ -510,13 +606,68 @@ def create_plane_driver(cam, plane, distance=None):
         var.targets[0].data_path = '["camera_plane_scale"]'
 
         # Expression
-        driver.driver.expression = \
-            "tan(FOV/2) * distance*2 * scale/100.0"
+        driver.driver.expression = f"{frame_size} * scale/100.0"
     
     # Set init distance if given
     if distance:
         plane["camera_plane_distance"] = distance
     
+
+def create_plane_from_cam_bg(context, cam, bg, shader='EMISSION', distance=10, use_driver=False, col_name='Background'):
+    '''Create an image plane matching a camera background image frame
+    return plane object (None if background has no image)'''
+    img = bg.image
+    if not img:
+        return
+
+    name = img.name
+    res_x, res_y = img.size
+
+    # create plane coords matching the background image as drawn in camera view,
+    # in frame units where camera fit axis size is 1
+    # (the axis on which camera angle/ortho_scale and shift apply)
+    center_x, center_y, width, height = get_bg_image_frame_rect(context.scene, cam, bg)
+    flip_x = -1 if bg.use_flip_x else 1
+    flip_y = -1 if bg.use_flip_y else 1
+    rot = Matrix.Rotation(-bg.rotation, 2)
+
+    # 3----2
+    # |    |
+    # 0----1 
+
+    corners = [
+        Vector((-0.5, -0.5)),
+        Vector((0.5, -0.5)),
+        Vector((-0.5, 0.5)),
+        Vector((0.5, 0.5)),
+        ]
+
+    fit_based_corners = []
+    for co in corners:
+        local = rot @ Vector((co.x * width * flip_x, co.y * height * flip_y))
+        fit_based_corners.append(Vector((center_x + local.x, center_y + local.y, 0)))
+
+    plane = create_image_plane(fit_based_corners, name)
+    
+    ## 'image', 'size', 'frame_start', 'frame_offset', 'frame_duration'
+    img_spec = ImageSpec(img, (res_x, res_y), bg.image_user.frame_start, bg.image_user.frame_offset, bg.image_user.frame_duration)
+    material = create_cycles_material(context, img_spec, shader=shader)
+    plane.data.materials.append(material)
+
+    # context.scene.collection.objects.link(plane) # scene collection
+    if not col_name:
+        context.scene.collection.objects.link(plane)
+    else:
+        set_collection(plane, col_name)
+
+    # create ctrl driver
+    if use_driver:
+        create_plane_driver(cam, plane, distance)
+    else:
+        setup_transform_from_dist(cam, plane, distance)
+
+    print(f'Generated image plane {plane.name}')
+    return plane
 
 def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_driver=False, post_state='HIDE', col_name='Background'):
     cam = context.object
@@ -531,57 +682,10 @@ def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_dr
         if not bg.show_background_image:
             continue
 
-        img = bg.image
-        if not img:
+        plane = create_plane_from_cam_bg(context, cam, bg,
+            shader=shader, distance=distance + offset, use_driver=use_driver, col_name=col_name)
+        if not plane:
             continue
-        
-        name = img.name
-
-        # create plane coords (just make width equal to 1)
-        res_x, res_y = img.size
-        
-        # scaling = 1 / max(res_x, res_y)
-        scaling = 1 / res_x
-
-        # 3----2
-        # |    |
-        # 0----1 
-
-        corners = [
-            Vector((0,0)),
-            Vector((res_x, 0)),
-            Vector((0, res_y)),
-            Vector((res_x, res_y)),
-            ]
-
-        width_based_corners = []
-        for co in corners:
-            nco_x = (co.x + (-0.5 * res_x)) * scaling
-            nco_y = (co.y + (-0.5 * res_y)) * scaling
-            width_based_corners.append(Vector((nco_x, nco_y, 0)))
-
-        plane = create_image_plane(width_based_corners, name)
-        
-        #if bg.source == 'IMAGE' and bg.image:
-
-        ## 'image', 'size', 'frame_start', 'frame_offset', 'frame_duration'
-        img_spec = ImageSpec(img, (res_x, res_y), bg.image_user.frame_start, bg.image_user.frame_offset, bg.image_user.frame_duration)
-        material = create_cycles_material(context, img_spec, shader=shader)
-        plane.data.materials.append(material)
-
-
-        # context.scene.collection.objects.link(plane) # scene collection
-        if not col_name:
-            context.scene.collection.objects.link(plane)
-        else:
-            set_collection(plane, col_name)
-
-        # create ctrl driver
-        if use_driver:
-            create_plane_driver(cam, plane, distance + offset)
-        else:
-            setup_transform_from_dist(cam, plane, distance + offset)
-        
 
         if post_state == 'HIDE':
             bg.show_background_image = False
@@ -589,4 +693,3 @@ def convert_cam_bg_image_to_mesh(context, shader='EMISSION', distance=10, use_dr
             cam.data.background_images.remove(bg)
         
         offset += 2 # offset when mulitple ref to generate
-        print(f'Generated image plane {plane.name}')
